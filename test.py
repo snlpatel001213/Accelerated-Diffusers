@@ -15,7 +15,7 @@ import os
 import torch
 
 # 🔧 CONFIGURATION: Switch between accelerated and unaccelerated versions
-USE_ACCELERATION = False  # 👈 CHANGE THIS LINE: True = accelerated, False = standard
+USE_ACCELERATION = True  # 👈 CHANGE THIS LINE: True = accelerated, False = standard
 
 # Conditional imports based on acceleration setting
 if USE_ACCELERATION:
@@ -70,9 +70,9 @@ if torch.cuda.is_available():
             cache_dir = "./tensorrt_cache"
             onnx_cache_dir = "./onnx_cache"
             
-            # Check existing files
-            engine_files = ["text_encoder.trt", "unet.trt", "vae_decoder.trt"]
-            onnx_files = ["text_encoder.onnx", "unet.onnx", "vae_decoder.onnx"]
+            # Check existing files with dimension-specific naming
+            engine_files = ["text_encoder_b1.trt", "unet_b1_h768_w512.trt", "vae_decoder_b1_h768_w512.trt"]
+            onnx_files = ["text_encoder_b1.onnx", "unet_b1_h768_w512.onnx", "vae_decoder_b1_h768_w512.onnx"]
             
             print(f"\n📁 Checking cache directories:")
             print(f"   TensorRT engines: {cache_dir}/")
@@ -86,8 +86,8 @@ if torch.cuda.is_available():
                 engine_exists = os.path.exists(engine_path)
                 onnx_exists = os.path.exists(onnx_path)
                 
-                model_name = engine_file.replace('.trt', '')
-                print(f"   {model_name}:")
+                model_name = engine_file.replace('.trt', '').split('_')[0]  # Extract base model name
+                print(f"   {model_name} ({engine_file.replace('.trt', '')}):")
                 
                 if engine_exists and onnx_exists:
                     print(f"     ✅ TensorRT engine exists → Will load directly (fastest)")
@@ -101,14 +101,17 @@ if torch.cuda.is_available():
                 else:
                     print(f"     🔄 Neither exists → Full conversion: PyTorch → ONNX → TensorRT")
             
-            # Enable optimization with separate cache directories
+            # Enable optimization with separate cache directories and custom dimensions
             print(f"\n🚀 Enabling TensorRT optimization with smart caching...")
             pipe.enable_tensorrt_optimization(
                 cache_dir=cache_dir,
                 onnx_cache_dir=onnx_cache_dir,
                 fp16=True,
                 verbose=True,
-                max_workspace_size=1 << 30  # 1GB workspace
+                max_workspace_size=1 << 30,  # 1GB workspace
+                batch_size=1,
+                height=768,  # Custom height for testing variable dimensions
+                width=512    # Custom width for testing variable dimensions
             )
             print("TensorRT optimization enabled!")
             
@@ -120,8 +123,8 @@ if torch.cuda.is_available():
                 engine_path = os.path.join(cache_dir, engine_file)
                 onnx_path = os.path.join(onnx_cache_dir, onnx_file)
                 
-                model_name = engine_file.replace('.trt', '')
-                print(f"   {model_name}:")
+                model_name = engine_file.replace('.trt', '').split('_')[0]  # Extract base model name
+                print(f"   {model_name} ({engine_file.replace('.trt', '')}):")
                 
                 if os.path.exists(engine_path):
                     size_mb = os.path.getsize(engine_path) / (1024 * 1024)
@@ -144,11 +147,23 @@ if torch.cuda.is_available():
         else:
             print("Running with standard (unaccelerated) pipeline - no TensorRT optimization")
         
-        # Generate images
-        print("Generating image...")
-        image = pipe("A beautiful landscape").images[0]
+        # Generate images with custom dimensions
+        print("Generating image with custom dimensions (768x512)...")
+        image = pipe(
+            "A beautiful landscape", 
+            height=768, 
+            width=512,
+            num_inference_steps=20,  # Faster generation for testing
+            guidance_scale=7.5
+        ).images[0]
         image.save("test_output.png")
         print("✅ Image generated successfully and saved as test_output.png!")
+        print(f"✅ Generated image dimensions: {image.size} (width x height)")
+        
+        if USE_ACCELERATION:
+            print("✅ Image was generated using TensorRT-optimized models with variable dimensions!")
+        else:
+            print("✅ Image was generated using standard pipeline")
         
     except Exception as e:
         if USE_ACCELERATION:

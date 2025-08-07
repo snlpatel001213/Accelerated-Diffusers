@@ -31,7 +31,7 @@ except OptionalDependencyNotAvailable:
 else:
     _import_structure["clip_image_project_model"] = ["CLIPImageProjection"]
     _import_structure["pipeline_stable_diffusion"] = ["StableDiffusionPipeline"]
-    _import_structure["pipeline_stable_diffusion_tensorrt"] = ["StableDiffusionTensorRTPipeline"]
+    _import_structure["pipeline_tensorrt_stable_diffusion"] = ["StableDiffusionTensorRTPipeline"]
     _import_structure["pipeline_stable_diffusion_img2img"] = ["StableDiffusionImg2ImgPipeline"]
     _import_structure["pipeline_stable_diffusion_inpaint"] = ["StableDiffusionInpaintPipeline"]
     _import_structure["pipeline_stable_diffusion_instruct_pix2pix"] = ["StableDiffusionInstructPix2PixPipeline"]
@@ -108,7 +108,7 @@ if TYPE_CHECKING or DIFFUSERS_SLOW_IMPORT:
             StableDiffusionPipeline,
             StableDiffusionPipelineOutput,
         )
-        from .pipeline_stable_diffusion_tensorrt import StableDiffusionTensorRTPipeline
+        from .pipeline_tensorrt_stable_diffusion import StableDiffusionTensorRTPipeline
         from .pipeline_stable_diffusion_img2img import StableDiffusionImg2ImgPipeline
         from .pipeline_stable_diffusion_inpaint import StableDiffusionInpaintPipeline
         from .pipeline_stable_diffusion_instruct_pix2pix import (
