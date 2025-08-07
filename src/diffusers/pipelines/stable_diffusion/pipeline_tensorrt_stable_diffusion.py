@@ -1026,7 +1026,10 @@ class TensorRTStableDiffusionMixin:
                     self._in_fallback = False
                 return result
         else:
-            return self.text_encoder(input_ids, **kwargs)
+            if self._original_text_encoder_forward:
+                return self._original_text_encoder_forward(input_ids, **kwargs)
+            else:
+                return self.text_encoder(input_ids, **kwargs)
     
     def _tensorrt_unet_call(self, sample, timestep, encoder_hidden_states, **kwargs):
         """TensorRT-optimized UNet call with fallback."""
@@ -1058,7 +1061,10 @@ class TensorRTStableDiffusionMixin:
                     self._in_fallback = False
                 return result
         else:
-            return self.unet(sample, timestep, encoder_hidden_states=encoder_hidden_states, **kwargs)
+            if self._original_unet_forward:
+                return self._original_unet_forward(sample, timestep, encoder_hidden_states=encoder_hidden_states, **kwargs)
+            else:
+                return self.unet(sample, timestep, encoder_hidden_states=encoder_hidden_states, **kwargs)
     
     def _tensorrt_vae_decode_call(self, latents, **kwargs):
         """TensorRT-optimized VAE decode call with fallback."""
@@ -1088,7 +1094,10 @@ class TensorRTStableDiffusionMixin:
                     self._in_fallback = False
                 return result
         else:
-            return self.vae.decode(latents, **kwargs)
+            if self._original_vae_decode:
+                return self._original_vae_decode(latents, **kwargs)
+            else:
+                return self.vae.decode(latents, **kwargs)
 
 
 EXAMPLE_DOC_STRING = """
@@ -1200,7 +1209,10 @@ class StableDiffusionTensorRTPipeline(TensorRTStableDiffusionMixin, StableDiffus
 
             if clip_skip is None:
                 # Use TensorRT-optimized text encoder call
-                prompt_embeds = self._tensorrt_text_encoder_call(text_input_ids.to(device), attention_mask=attention_mask)
+                if self.tensorrt_enabled:
+                    prompt_embeds = self._tensorrt_text_encoder_call(text_input_ids.to(device), attention_mask=attention_mask)
+                else:
+                    prompt_embeds = self.text_encoder(text_input_ids.to(device), attention_mask=attention_mask)
                 prompt_embeds = prompt_embeds.last_hidden_state
             else:
                 # Fallback to original implementation for clip_skip
@@ -1263,10 +1275,16 @@ class StableDiffusionTensorRTPipeline(TensorRTStableDiffusionMixin, StableDiffus
                 attention_mask = None
 
             # Use TensorRT-optimized text encoder call for negative prompt
-            negative_prompt_embeds = self._tensorrt_text_encoder_call(
-                uncond_input.input_ids.to(device),
-                attention_mask=attention_mask,
-            )
+            if self.tensorrt_enabled:
+                negative_prompt_embeds = self._tensorrt_text_encoder_call(
+                    uncond_input.input_ids.to(device),
+                    attention_mask=attention_mask,
+                )
+            else:
+                negative_prompt_embeds = self.text_encoder(
+                    uncond_input.input_ids.to(device),
+                    attention_mask=attention_mask,
+                )
             negative_prompt_embeds = negative_prompt_embeds.last_hidden_state
 
         if do_classifier_free_guidance:
